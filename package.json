@@ -1,0 +1,24 @@
+{
+  "name": "myleaguething",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sh-angl/MyLeagueThing.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/sh-angl/MyLeagueThing/issues"
+  },
+  "homepage": "https://github.com/sh-angl/MyLeagueThing#readme",
+  "dependencies": {
+    "discord.js": "^12.2.0",
+    "kayn": "^0.10.2",
+    "nodemon": "^2.0.4"
+  }
+}
