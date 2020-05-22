@@ -1,3 +1,8 @@
+// first thing is to get my config.json file up and ready
+const {discordToken, riotAPIToken, sqlDBStuff, LOLPlayer} = require('./config.json')
+
+
+
 // this is for discord stuff
 const Discord = require('discord.js');
 const client = new Discord.Client();
@@ -6,7 +11,7 @@ const client = new Discord.Client();
 const _kayn = require('kayn')
 const Kayn = _kayn.Kayn
 const REGIONS = _kayn.REGIONS
-const kayn = Kayn("RGAPI-8bb3f23e-d62f-4d24-959a-fcc08652dc2d")({
+const kayn = Kayn(riotAPIToken)({
   region: REGIONS.EUROPE_WEST,
   apiURLPrefix: 'https://%s.api.riotgames.com',
   locale: 'en_US',
@@ -33,26 +38,31 @@ const kayn = Kayn("RGAPI-8bb3f23e-d62f-4d24-959a-fcc08652dc2d")({
   },
 })
 
-// maybe better stuff than earlier
-// sample code to do sonething
-const main = async () => {
-    const accountStuff = await kayn.Summoner.by.name('1shanghai')
-    console.log(accountStuff)
-    // ^ default region is used, which is `na` unless specified in config
-    const result = await kayn.CurrentGame.by
-        .summonerId(accountStuff.id)
-    console.log(result)
-}
+var mysql      = require('mysql');
+var connection = mysql.createConnection({
+  host     : sqlDBStuff.host,
+  user     : sqlDBStuff.user,
+  password : sqlDBStuff.password,
+  database : sqlDBStuff.database
+});
+ 
+connection.connect();
+ 
+connection.query('SELECT 1 + 1 AS solution', function (error, results, fields) {
+  if (error) throw error;
+  console.log('The solution is: ', results[0].solution);
+});
+ 
+connection.end();
 
 
-// this was for some random thing for testing
-const otherChannelID = "711029454666858497";
+// start hte bot part
 
 client.on('ready', () => {
     console.log(`Logged in as ${client.user.tag}!`);
 });
 
-client.on('message', msg => {
+client.on('message', async msg => {
     if (msg.content === 'ping') {
       msg.reply('Pong!');
     }
@@ -73,8 +83,17 @@ client.on('message', msg => {
         // yass.voice.setChannel(otherChannelID)
     }
     if (msg.content === "!league"){
-      main()
+        console.log(LOLPlayer)
+        const accountStuff = await kayn.Summoner.by.name(LOLPlayer)
+        console.log(accountStuff)
+        // ^ default region is used, which is `na` unless specified in config
+        kayn.CurrentGame.by.summonerID(accountStuff.id).then(thing => {
+            for (let summoner of thing.participants){
+                console.log(summoner.summonerName, summoner.teamId)
+            }
+            })
+            .catch( err => console.log(err))
     }
   });
 
-client.login('Njg0MDE4NDc5NjU3MjU0OTEz.Xr9DOw.h2nDwq09ohEi9yKSenrxOOMmMeM');
+client.login(discordToken);
