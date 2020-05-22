@@ -46,14 +46,33 @@ var connection = mysql.createConnection({
   database : sqlDBStuff.database
 });
  
-connection.connect();
+// smaple code i wi;ll use later as an example on hoq to do it myself
+
+// having some problems with connection.connect() and connection.end()
+
+
+// connection.connect();
  
-connection.query('SELECT 1 + 1 AS solution', function (error, results, fields) {
-  if (error) throw error;
-  console.log('The solution is: ', results[0].solution);
+// connection.query('SELECT 1 + 1 AS solution', function (error, results, fields) {
+//   if (error) throw error;
+//   console.log('The solution is: ', results[0].solution);
+// });
+ 
+// connection.end();
+
+
+connection.query('DROP TABLE IF EXISTS related', (error) => {
+    if (error) throw error; 
 });
  
-connection.end();
+connection.query(`CREATE TABLE related(
+    discordSnowflake VARCHAR(20),
+    leagueID VARCHAR(60),
+    PRIMARY KEY(discordSnowflake, leagueID)
+)`, (error) => {
+  if (error) throw error;
+});
+ 
 
 
 // start hte bot part
@@ -63,10 +82,13 @@ client.on('ready', () => {
 });
 
 client.on('message', async msg => {
-    if (msg.content === 'ping') {
-      msg.reply('Pong!');
-    }
-    if (msg.content === '!move'){
+    let input = msg.content.split(" ")
+    let command = input.shift()
+    if (command === 'ping') {
+        msg.reply('Pong!');
+
+
+    }else if (command === '!move'){
         let memberList = []
         memberList.push(msg.member)
 
@@ -81,19 +103,44 @@ client.on('message', async msg => {
         })
         // var yass = msg.member
         // yass.voice.setChannel(otherChannelID)
-    }
-    if (msg.content === "!league"){
+
+
+    }else if (command === "!league"){
         console.log(LOLPlayer)
         const accountStuff = await kayn.Summoner.by.name(LOLPlayer)
         console.log(accountStuff)
         // ^ default region is used, which is `na` unless specified in config
         kayn.CurrentGame.by.summonerID(accountStuff.id).then(thing => {
+            console.log(thing)
             for (let summoner of thing.participants){
                 console.log(summoner.summonerName, summoner.teamId)
             }
             })
             .catch( err => console.log(err))
+
+
+    }else if  (command === "!register"){
+        // important to note that whats in use is id and not accountid. id is returned by the spectator api so this is what i use. also id is region specific and therefore someone cna have the same id in a different region
+        const summObj = await kayn.Summoner.by.name(input[0])
+        const leagueID = summObj.id
+        console.log(`${input[0]} has leagueID of ${leagueID}`)
+
+        // sql entry into db
+        connection.query('INSERT INTO related VALUES ( ? , ? )', [msg.author.id, leagueID],
+            (error) => {
+                if (error) throw error;
+            }
+        )
+
+
+    }else if(command === "!id"){
+        console.log(msg.author.id)
+
+
+    }else if(command === "!voice"){
+        
     }
   });
+
 
 client.login(discordToken);
