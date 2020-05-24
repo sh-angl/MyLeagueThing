@@ -66,9 +66,9 @@ connection.query('DROP TABLE IF EXISTS related', (error) => {
 });
  
 connection.query(`CREATE TABLE related(
-    discordSnowflake VARCHAR(20),
     leagueID VARCHAR(60),
-    PRIMARY KEY(discordSnowflake, leagueID)
+    discordSnowflake VARCHAR(20),
+    PRIMARY KEY(leagueID)
 )`, (error) => {
   if (error) throw error;
 });
@@ -121,24 +121,49 @@ client.on('message', async msg => {
 
     }else if  (command === "!register"){
         // important to note that whats in use is id and not accountid. id is returned by the spectator api so this is what i use. also id is region specific and therefore someone cna have the same id in a different region
-        const summObj = await kayn.Summoner.by.name(input[0])
+        const leagueName = input[0]
+        const summObj = await kayn.Summoner.by.name(leagueName)
         const leagueID = summObj.id
-        console.log(`${input[0]} has leagueID of ${leagueID}`)
+        console.log(`${leagueName} has leagueID of ${leagueID}`)
 
         // sql entry into db
-        connection.query('INSERT INTO related VALUES ( ? , ? )', [msg.author.id, leagueID],
+        connection.query('INSERT INTO related VALUES ( ? , ? )', [leagueID, msg.author.id],
             (error) => {
-                if (error) throw error;
+                if (error){
+                    if (error.code = "ER_DUP_ENTRY"){
+                        msg.member.send(`\`${leagueName}\` is already associated with a discord account`)
+                    }else{
+                        console.log(error)
+                    }
+                }else{
+                    msg.member.send(`You have registered \`${leagueName}\` with your account.`)
+                }
             }
         )
 
 
-    }else if(command === "!id"){
-        console.log(msg.author.id)
+    }else if(command === "!deregsiter"){
+        const leagueName = input[0]
+        const summObj = await kayn.Summoner.by.name(leagueName)
+        const leagueID = summObj.id
+        connection.query(`SELECT discordSnowflake FROM related
+            WHERE leagueID = ?`,
+            [leagueID],
+            (error, results, fields) => {
+                if (error){
+                    console.log(error)
+                }else{
+                    if(results.discordSnowflake === msg.author.id){
 
+                    }else{
+                        
+                    }
+                }
+            })
+       
 
     }else if(command === "!voice"){
-        
+        console.log(msg.member.voice)
     }
   });
 
