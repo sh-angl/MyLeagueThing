@@ -73,6 +73,17 @@ pool.query(`CREATE TABLE related(
   if (error) throw error;
 });
 
+pool.query('DROP TABLE IF EXISTS reports', error => {
+    if (error) throw error;
+})
+
+pool.query(`CREATE TABLE reports(
+    discordSnowflake VARCHAR(20),
+    reported INT,
+    times INT
+    PRIMARY KEY(discordSnowflake)
+)`)
+
 
  
 
@@ -114,7 +125,8 @@ client.on('message', async msg => {
         console.log(`${leagueName} has leagueID of ${leagueID}`)
 
         // sql entry into db
-        pool.query('INSERT INTO related VALUES ( ? , ? )', [leagueID, msg.author.id],
+        pool.query(`INSERT INTO related VALUES ( ? , ? );
+                    INSERT INTO reports VALUES ( ?, ?, ?)`, [leagueID, msg.author.id, msg.author.id, 0, 0],
             (error) => {
                 if (error){
                     if (error.code = "ER_DUP_ENTRY"){
@@ -196,16 +208,22 @@ client.on('message', async msg => {
                                         for (let discordSnowflakeContainer of results){
                                             reformattedResults.push(discordSnowflakeContainer.discordSnowflake)
                                         }
-                                        let otherMembers = msg.guild.members.fetch(reformattedResults)
-                                        console.log(otherMembers)
-                                        for (let member of otherMembers){
-                                            if(member.voice.sessionID){
-                                                member.voice.setChannel(voiceChannel)
+                                        let otherMembers = msg.guild.members.fetch(reformattedResults).then( (first, second) => {
+                                            console.log(otherMembers)
+                                            for (let member of first){
+                                                if(member.voice.sessionID){
+                                                    member.voice.setChannel(voiceChannel)
+                                                }
                                             }
-                                        }
-                                        msg.member.voice.setChannel(voiceChannel)
-
-
+                                            msg.member.voice.setChannel(voiceChannel)
+                                            pool.query(`UPDATE reports SET times = times + 1 WHERE discordSnowflake = "` + msg.member.id + `" OR discordSnowflake = "` + reformattedResults.join(`" OR discordSnowflake = "`) + `"`,
+                                        (error) => {
+                                            if (error){
+                                                console.log(error)
+                                            }
+                                        })
+    
+                                        })
                                     })
                                 }
                                 else{
@@ -230,6 +248,8 @@ client.on('message', async msg => {
         }else{
             msg.member.send('You must first join a lobby voice channel before using this command')
         }
+    }else if(command === "!report"){
+        
     }
   });
 
