@@ -61,17 +61,19 @@ var connection = mysql.createConnection({
 // connection.end();
 
 
-connection.query('DROP TABLE IF EXISTS related', (error) => {
-    if (error) throw error; 
-});
+// connection.query('DROP TABLE IF EXISTS related', (error) => {
+//     if (error) throw error; 
+// });
  
-connection.query(`CREATE TABLE related(
-    leagueID VARCHAR(60),
-    discordSnowflake VARCHAR(20),
-    PRIMARY KEY(leagueID)
-)`, (error) => {
-  if (error) throw error;
-});
+// connection.query(`CREATE TABLE related(
+//     leagueID VARCHAR(60),
+//     discordSnowflake VARCHAR(20),
+//     PRIMARY KEY(leagueID)
+// )`, (error) => {
+//   if (error) throw error;
+// });
+
+
  
 
 
@@ -104,21 +106,6 @@ client.on('message', async msg => {
         // var yass = msg.member
         // yass.voice.setChannel(otherChannelID)
 
-
-    }else if (command === "!league"){
-        console.log(LOLPlayer)
-        const accountStuff = await kayn.Summoner.by.name(LOLPlayer)
-        console.log(accountStuff)
-        // ^ default region is used, which is `na` unless specified in config
-        kayn.CurrentGame.by.summonerID(accountStuff.id).then(thing => {
-            console.log(thing)
-            for (let summoner of thing.participants){
-                console.log(summoner.summonerName, summoner.teamId)
-            }
-            })
-            .catch( err => console.log(err))
-
-
     }else if  (command === "!register"){
         // important to note that whats in use is id and not accountid. id is returned by the spectator api so this is what i use. also id is region specific and therefore someone cna have the same id in a different region
         const leagueName = input[0]
@@ -142,7 +129,7 @@ client.on('message', async msg => {
         )
 
 
-    }else if(command === "!deregsiter"){
+    }else if(command === "!deregister"){
         const leagueName = input[0]
         const summObj = await kayn.Summoner.by.name(leagueName)
         const leagueID = summObj.id
@@ -150,13 +137,22 @@ client.on('message', async msg => {
             WHERE leagueID = ?`,
             [leagueID],
             (error, results, fields) => {
+                console.log(results.length)
                 if (error){
                     console.log(error)
-                }else{
-                    if(results.discordSnowflake === msg.author.id){
-
+                }else if (results.length != 0){
+                    console.log(results[0].discordSnowflake)
+                    if(results[0].discordSnowflake === msg.author.id){
+                        connection.query(`DELETE FROM related
+                        WHERE leagueID = ?`, [leagueID], (error) => {
+                            if (error){
+                                console.log(error)
+                            }else{
+                                msg.member.send(`\`${leagueName}\` has been deregistered from this discord account`)
+                            }
+                        })
                     }else{
-                        
+                        msg.member.send(`You cannot register \`${leagueName}\` from their discord account`)
                     }
                 }
             })
@@ -164,6 +160,68 @@ client.on('message', async msg => {
 
     }else if(command === "!voice"){
         console.log(msg.member.voice)
+
+
+    }else if (command === "!match"){
+        if(msg.member.voice.sessionID){
+            if(true){
+                connection.query(`SELECT leagueID FROM related WHERE discordSnowflake = ?`, msg.member.id, (error, results, fields) => {
+                    if (results[0]){
+                        kayn.CurrentGame.by.summonerID(results[0].leagueID).then(matchData => {
+                            console.log(matchData)
+                            let msgersLeagueID = results[0].leagueID
+                            let teamLeagueIDList= []
+                            let teamID;
+                            for (let player of matchData.participants){
+                                if (player.summonerId === msgersLeagueID){
+                                    teamID = player.teamId
+                                    break
+                                }
+                            }
+                            for (let player of matchData.participants){
+                                if(player.teamId === teamID && player.summonerId != msgersLeagueID){
+                                    teamLeagueIDList.push(player.summonerId)
+                                }
+                            }
+                            console.log(`SELECT discordSnowflake FROM related WHERE discordSnowflake="` + teamLeagueIDList.join(`" OR discordSnowflake="`) + `"`)
+                            connection.query(`SELECT discordSnowflake FROM related WHERE leaugeID="` + teamLeagueIDList.join(`" OR leagueID="`) + `"`, (error, results, fields) => {
+                                if (error){
+                                    console.log(error)
+                                }
+                                console.log(results, fields)
+                                if (results.length > 0){
+                                    msg.guild.channels.create(matchData.gameId,{
+                                        type: 'voice'
+                                    }).then(voiceChannel => {
+                                        msg.member.voice.setChannel(voiceChannel)
+                                        for (let discordSnowflake of results){
+                                            console.log(discordSnowflake)
+                                        }
+
+                                    })
+                                }
+                                else{
+                                    msg.member.send('Noone else from your game is registered with this service')
+                                }
+                            })
+                        }).catch(thing => {
+                            if (JSON.parse(thing.error.response.body).status.message === "Data not found"){
+                                msg.member.send('It does not appear you are in a game at the moment')
+                            }else{
+                                console.log(thing)
+                            }
+                        })
+                    }else{
+                        msg.member.send('You must first register your League of Legends username to your discord account')
+
+                    }
+                })
+            }else{
+
+            }
+        }else{
+            msg.member.send('You must first join a lobby voice channel before using this command')
+        }
     }
   });
 
