@@ -39,7 +39,7 @@ const kayn = Kayn(riotAPIToken)({
 })
 
 var mysql      = require('mysql');
-var connection = mysql.createConnection({
+var pool = mysql.createPool({
   host     : sqlDBStuff.host,
   user     : sqlDBStuff.user,
   password : sqlDBStuff.password,
@@ -61,17 +61,17 @@ var connection = mysql.createConnection({
 // connection.end();
 
 
-// connection.query('DROP TABLE IF EXISTS related', (error) => {
-//     if (error) throw error; 
-// });
+pool.query('DROP TABLE IF EXISTS related', (error) => {
+    if (error) throw error; 
+});
  
-// connection.query(`CREATE TABLE related(
-//     leagueID VARCHAR(60),
-//     discordSnowflake VARCHAR(20),
-//     PRIMARY KEY(leagueID)
-// )`, (error) => {
-//   if (error) throw error;
-// });
+pool.query(`CREATE TABLE related(
+    leagueID VARCHAR(60),
+    discordSnowflake VARCHAR(20),
+    PRIMARY KEY(leagueID)
+)`, (error) => {
+  if (error) throw error;
+});
 
 
  
@@ -114,7 +114,7 @@ client.on('message', async msg => {
         console.log(`${leagueName} has leagueID of ${leagueID}`)
 
         // sql entry into db
-        connection.query('INSERT INTO related VALUES ( ? , ? )', [leagueID, msg.author.id],
+        pool.query('INSERT INTO related VALUES ( ? , ? )', [leagueID, msg.author.id],
             (error) => {
                 if (error){
                     if (error.code = "ER_DUP_ENTRY"){
@@ -133,7 +133,7 @@ client.on('message', async msg => {
         const leagueName = input[0]
         const summObj = await kayn.Summoner.by.name(leagueName)
         const leagueID = summObj.id
-        connection.query(`SELECT discordSnowflake FROM related
+        pool.query(`SELECT discordSnowflake FROM related
             WHERE leagueID = ?`,
             [leagueID],
             (error, results, fields) => {
@@ -143,7 +143,7 @@ client.on('message', async msg => {
                 }else if (results.length != 0){
                     console.log(results[0].discordSnowflake)
                     if(results[0].discordSnowflake === msg.author.id){
-                        connection.query(`DELETE FROM related
+                        pool.query(`DELETE FROM related
                         WHERE leagueID = ?`, [leagueID], (error) => {
                             if (error){
                                 console.log(error)
@@ -165,7 +165,7 @@ client.on('message', async msg => {
     }else if (command === "!match"){
         if(msg.member.voice.sessionID){
             if(true){
-                connection.query(`SELECT leagueID FROM related WHERE discordSnowflake = ?`, msg.member.id, (error, results, fields) => {
+                pool.query(`SELECT leagueID FROM related WHERE discordSnowflake = ?`, msg.member.id, (error, results, fields) => {
                     if (results[0]){
                         kayn.CurrentGame.by.summonerID(results[0].leagueID).then(matchData => {
                             console.log(matchData)
@@ -183,7 +183,7 @@ client.on('message', async msg => {
                                     teamLeagueIDList.push(player.summonerId)
                                 }
                             }
-                            connection.query(`SELECT discordSnowflake FROM related WHERE leaugeID="` + teamLeagueIDList.join(`" OR leagueID="`) + `"`, (error, results, fields) => {
+                            pool.query(`SELECT discordSnowflake FROM related WHERE leaugeID="` + teamLeagueIDList.join(`" OR leagueID="`) + `"`, (error, results, fields) => {
                                 if (error){
                                     console.log(error)
                                 }
