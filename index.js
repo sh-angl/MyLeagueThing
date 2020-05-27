@@ -183,7 +183,6 @@ client.on('message', async msg => {
                                     teamLeagueIDList.push(player.summonerId)
                                 }
                             }
-                            console.log(`SELECT discordSnowflake FROM related WHERE discordSnowflake="` + teamLeagueIDList.join(`" OR discordSnowflake="`) + `"`)
                             connection.query(`SELECT discordSnowflake FROM related WHERE leaugeID="` + teamLeagueIDList.join(`" OR leagueID="`) + `"`, (error, results, fields) => {
                                 if (error){
                                     console.log(error)
@@ -193,10 +192,19 @@ client.on('message', async msg => {
                                     msg.guild.channels.create(matchData.gameId,{
                                         type: 'voice'
                                     }).then(voiceChannel => {
-                                        msg.member.voice.setChannel(voiceChannel)
-                                        for (let discordSnowflake of results){
-                                            console.log(discordSnowflake)
+                                        let reformattedResults = []
+                                        for (let discordSnowflakeContainer of results){
+                                            reformattedResults.push(discordSnowflakeContainer.discordSnowflake)
                                         }
+                                        let otherMembers = msg.guild.members.fetch(reformattedResults)
+                                        console.log(otherMembers)
+                                        for (let member of otherMembers){
+                                            if(member.voice.sessionID){
+                                                member.voice.setChannel(voiceChannel)
+                                            }
+                                        }
+                                        msg.member.voice.setChannel(voiceChannel)
+
 
                                     })
                                 }
