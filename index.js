@@ -238,11 +238,11 @@ client.on('message', async msg => {
                             }
                             msg.member.voice.setChannel(voiceChannel)
                             pool.query(`UPDATE reports SET times = times + 1 WHERE discordSnowflake = "` + msg.member.id + `" OR discordSnowflake = "` + reformattedResults.join(`" OR discordSnowflake = "`) + `"`,
-                        (error) => {
-                            if (error){
-                                console.log(error)
-                            }
-                        })
+                            (error) => {
+                                if (error){
+                                    console.log(error)
+                                }
+                            })
 
                         })
                     })
@@ -259,6 +259,37 @@ client.on('message', async msg => {
         for(let channel of msg.guild.channels.cache){
             console.log(channel[1].name)
         }
+    }else if (command === "!report"){
+        let reportee = input[0]
+        let gameId = msg.member.voice.channel.name
+        kayn.Match.get(gameId).then(mathData => {
+            for (let player of mathData.participants){
+                if (reportee === player.name){
+                    pool.query(`SELECT discordSnowflake FROM related WHERE leagueID = ?`, [player.summonerId], (error, results, fields) => {
+                        if (error){
+                            console.log(error)
+                            return
+                        }
+                        if (results[0] == undefined){
+                            msg.member.send(`It seems that \`${reportee}\` was not in a game with you`)
+                            return
+                        }
+                        pool.query(`UPDATE reports SET reported = reported + 1 WHERE discordSnowflake = ?`, [results[0].discordSnowflake], (error, results, fields) => {
+                            if (error){
+                                console.log(error)
+                                return
+                            }
+                            msg.member.send(`Thank you for reporting \`${reportee}\``)
+                        })
+                    })
+                    return
+                }
+            }
+            msg.member.send('You cannot report someone who is not or was not in the voice channel you are currently in')
+
+        }).catch(error => {
+            console.log(error)
+        })
     }
   });
 
