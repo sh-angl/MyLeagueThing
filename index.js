@@ -175,11 +175,25 @@ client.on('message', async msg => {
 
 
     }else if (command === "!match"){
-        if(msg.member.voice.sessionID){
+        if(msg.member.voice.sessionID === undefined){
+            msg.member.send('You must first join a lobby voice channel before using this command')
+        }
+        
+        {
             if(true){
                 pool.query(`SELECT leagueID FROM related WHERE discordSnowflake = ?`, msg.member.id, (error, results, fields) => {
                     if (results[0]){
                         kayn.CurrentGame.by.summonerID(results[0].leagueID).then(matchData => {
+                            // first step is check in case the vc has already been created
+                            for (let vc of msg.guild.channels){
+                                if (vc[1].name === matchData.gameId){
+                                    msg.member.voice.setChannel(vc[0])
+                                    return
+                                }
+                            }
+
+
+                            // this occurs if a vc for the game hasnt been created
                             console.log(matchData)
                             let msgersLeagueID = results[0].leagueID
                             let teamLeagueIDList= []
@@ -246,10 +260,11 @@ client.on('message', async msg => {
 
             }
         }else{
-            msg.member.send('You must first join a lobby voice channel before using this command')
         }
-    }else if(command === "!report"){
-        
+    }else if(command === "!cache"){
+        for(let channel of msg.guild.channels.cache){
+            console.log(channel[1].name)
+        }
     }
   });
 
