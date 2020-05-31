@@ -177,90 +177,84 @@ client.on('message', async msg => {
     }else if (command === "!match"){
         if(msg.member.voice.sessionID === undefined){
             msg.member.send('You must first join a lobby voice channel before using this command')
+            return
         }
-        
-        {
-            if(true){
-                pool.query(`SELECT leagueID FROM related WHERE discordSnowflake = ?`, msg.member.id, (error, results, fields) => {
-                    if (results[0]){
-                        kayn.CurrentGame.by.summonerID(results[0].leagueID).then(matchData => {
-                            // first step is check in case the vc has already been created
-                            for (let vc of msg.guild.channels){
-                                if (vc[1].name === matchData.gameId){
-                                    msg.member.voice.setChannel(vc[0])
-                                    return
-                                }
-                            }
+        pool.query(`SELECT leagueID FROM related WHERE discordSnowflake = ?`, msg.member.id, (error, results, fields) => {
+            if (results[0] === undefined){
+                msg.member.send('You must first register your League of Legends username to your discord account')
+                return
+            }
+
+            kayn.CurrentGame.by.summonerID(results[0].leagueID).then(matchData => {
+                // first step is check in case the vc has already been created
+                for (let vc of msg.guild.channels){
+                    if (vc[1].name === matchData.gameId){
+                        msg.member.voice.setChannel(vc[0])
+                        return
+                    }
+                }
 
 
-                            // this occurs if a vc for the game hasnt been created
-                            console.log(matchData)
-                            let msgersLeagueID = results[0].leagueID
-                            let teamLeagueIDList= []
-                            let teamID;
-                            for (let player of matchData.participants){
-                                if (player.summonerId === msgersLeagueID){
-                                    teamID = player.teamId
-                                    break
+                // this occurs if a vc for the game hasnt been created
+                console.log(matchData)
+                let msgersLeagueID = results[0].leagueID
+                let teamLeagueIDList= []
+                let teamID;
+                for (let player of matchData.participants){
+                    if (player.summonerId === msgersLeagueID){
+                        teamID = player.teamId
+                        break
+                    }
+                }
+                for (let player of matchData.participants){
+                    if(player.teamId === teamID && player.summonerId != msgersLeagueID){
+                        teamLeagueIDList.push(player.summonerId)
+                    }
+                }
+                pool.query(`SELECT discordSnowflake FROM related WHERE leaugeID="` + teamLeagueIDList.join(`" OR leagueID="`) + `"`, (error, results, fields) => {
+                    if (error){
+                        console.log(error)
+                        return
+                    }
+                    console.log(results, fields)
+                    if (results.length === 0) {
+                        msg.member.send('Noone else from your game is registered with this service')
+                        return
+                    }
+
+                    msg.guild.channels.create(matchData.gameId,{
+                        type: 'voice'
+                    }).then(voiceChannel => {
+                        let reformattedResults = []
+                        for (let discordSnowflakeContainer of results){
+                            reformattedResults.push(discordSnowflakeContainer.discordSnowflake)
+                        }
+                        let otherMembers = msg.guild.members.fetch(reformattedResults).then( (first, second) => {
+                            console.log(otherMembers)
+                            for (let member of first){
+                                if(member.voice.sessionID){
+                                    member.voice.setChannel(voiceChannel)
                                 }
                             }
-                            for (let player of matchData.participants){
-                                if(player.teamId === teamID && player.summonerId != msgersLeagueID){
-                                    teamLeagueIDList.push(player.summonerId)
-                                }
-                            }
-                            pool.query(`SELECT discordSnowflake FROM related WHERE leaugeID="` + teamLeagueIDList.join(`" OR leagueID="`) + `"`, (error, results, fields) => {
-                                if (error){
-                                    console.log(error)
-                                }
-                                console.log(results, fields)
-                                if (results.length > 0){
-                                    msg.guild.channels.create(matchData.gameId,{
-                                        type: 'voice'
-                                    }).then(voiceChannel => {
-                                        let reformattedResults = []
-                                        for (let discordSnowflakeContainer of results){
-                                            reformattedResults.push(discordSnowflakeContainer.discordSnowflake)
-                                        }
-                                        let otherMembers = msg.guild.members.fetch(reformattedResults).then( (first, second) => {
-                                            console.log(otherMembers)
-                                            for (let member of first){
-                                                if(member.voice.sessionID){
-                                                    member.voice.setChannel(voiceChannel)
-                                                }
-                                            }
-                                            msg.member.voice.setChannel(voiceChannel)
-                                            pool.query(`UPDATE reports SET times = times + 1 WHERE discordSnowflake = "` + msg.member.id + `" OR discordSnowflake = "` + reformattedResults.join(`" OR discordSnowflake = "`) + `"`,
-                                        (error) => {
-                                            if (error){
-                                                console.log(error)
-                                            }
-                                        })
-    
-                                        })
-                                    })
-                                }
-                                else{
-                                    msg.member.send('Noone else from your game is registered with this service')
-                                }
-                            })
-                        }).catch(thing => {
-                            if (JSON.parse(thing.error.response.body).status.message === "Data not found"){
-                                msg.member.send('It does not appear you are in a game at the moment')
-                            }else{
-                                console.log(thing)
+                            msg.member.voice.setChannel(voiceChannel)
+                            pool.query(`UPDATE reports SET times = times + 1 WHERE discordSnowflake = "` + msg.member.id + `" OR discordSnowflake = "` + reformattedResults.join(`" OR discordSnowflake = "`) + `"`,
+                        (error) => {
+                            if (error){
+                                console.log(error)
                             }
                         })
-                    }else{
-                        msg.member.send('You must first register your League of Legends username to your discord account')
 
-                    }
+                        })
+                    })
                 })
-            }else{
-
-            }
-        }else{
-        }
+            }).catch(thing => {
+                if (JSON.parse(thing.error.response.body).status.message === "Data not found"){
+                    msg.member.send('It does not appear you are in a game at the moment')
+                }else{
+                    console.log(thing)
+                }
+            })
+        })
     }else if(command === "!cache"){
         for(let channel of msg.guild.channels.cache){
             console.log(channel[1].name)
